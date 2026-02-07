@@ -1,7 +1,7 @@
 import express from "express";
 import pkg from "body-parser";
 const { json } = pkg;
-import morgan from "morgan"; // Import morgan
+import morgan from "morgan";
 import { initializeSwissEphemeris } from "./ephemeris/swiss.js";
 import findEventRoute from "./routes/findEvent.js";
 import skyAtRoute from "./routes/skyAt.js";
@@ -9,7 +9,7 @@ import planetLongitudeRoute from "./routes/planetLongitude.js";
 import parseQueryRoute from "./routes/parseQuery.js";
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8080; // Changed default to 8080
 
 // Middleware for parsing JSON request bodies
 app.use(json());
@@ -21,17 +21,14 @@ async function startServer() {
   try {
     await initializeSwissEphemeris();
     console.log("Swiss Ephemeris initialized successfully.");
+    console.log(`DEBUG: process.env.PORT is ${process.env.PORT}`);
+    console.log(`DEBUG: App listening on PORT ${PORT}`);
 
     // Routes
     app.use("/find-event", findEventRoute);
     app.use("/sky-at", skyAtRoute);
     app.use("/planet-longitude", planetLongitudeRoute);
     app.use("/parse-query", parseQueryRoute);
-
-    // Root route
-    app.get("/", (req, res) => {
-      res.status(200).send("OK");
-    });
 
     // Basic health check
     app.get("/health", (req, res) => {
