@@ -9,7 +9,8 @@ import planetLongitudeRoute from "./routes/planetLongitude.js";
 import parseQueryRoute from "./routes/parseQuery.js";
 
 const app = express();
-const PORT = process.env.PORT || 8080; // Changed default to 8080
+const PORT = process.env.PORT || 8080;
+const HOST = process.env.HOST || "0.0.0.0";
 
 // Middleware for parsing JSON request bodies
 app.use(json());
@@ -41,13 +42,13 @@ async function startServer() {
       res.status(500).send({ error: "Something went wrong!" });
     });
 
-    app.listen(PORT, () => {
-      console.log(`Server running on http://localhost:${PORT}`);
+    app.listen(PORT, HOST, () => {
+      console.log(`Server running on http://${HOST}:${PORT}`);
     });
   } catch (error) {
     console.error(
       "Failed to initialize Swiss Ephemeris or start server:",
-      error
+      error,
     );
     process.exit(1);
   }
@@ -55,3 +56,4 @@ async function startServer() {
 
 // Start the server
 startServer();
+
