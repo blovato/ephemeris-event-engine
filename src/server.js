@@ -28,6 +28,11 @@ async function startServer() {
     app.use("/planet-longitude", planetLongitudeRoute);
     app.use("/parse-query", parseQueryRoute);
 
+    // Root route
+    app.get("/", (req, res) => {
+      res.status(200).send("OK");
+    });
+
     // Basic health check
     app.get("/health", (req, res) => {
       res.status(200).send("OK");
