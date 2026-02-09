@@ -21,11 +21,8 @@ lerna-debug.log*
 .node_repl_history
 .ionide
 
-# Directory for compiled output
-/dist
-
-# Dependencies
-/node_modules
+# Monorepo Dependencies
+packages/*/node_modules
 
 # Misc
 .DS_Store
