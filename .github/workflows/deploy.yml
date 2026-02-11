@@ -39,5 +39,5 @@ jobs:
 
       - name: Deploy to Fly.io
         uses: superfly/flyctl-actions/setup-flyctl@master
-      - run: flyctl deploy --remote-only --dockerfile packages/server/Dockerfile
+      - run: flyctl deploy --remote-only --dockerfile packages/server/Dockerfile -c packages/server/fly.toml
         working-directory: .
