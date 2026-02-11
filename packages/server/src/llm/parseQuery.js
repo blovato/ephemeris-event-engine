@@ -1,62 +1,154 @@
-import {
-  AspectEnum, // We only use AspectEnum values like "conjunction", "opposition"
-  FindEventDirectionEnum,
-} from "../types/constraints.js"; // Added .js
-import { PlanetEnum } from "../types/planets.js"; // Added .js
+import { GoogleGenerativeAI } from "@google/generative-ai";
+import { AspectEnum, FindEventDirectionEnum } from "../types/constraints.js";
+import { PlanetEnum, ZodiacSignEnum } from "../types/planets.js";
+
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+if (!GEMINI_API_KEY) {
+  console.warn("GEMINI_API_KEY is not set. The LLM parsing will not work.");
+}
+
+const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+
+// Helper to format enum values for the prompt
+const formatEnumValues = (enumObj) =>
+  Object.values(enumObj)
+    .map((val) => `"${val}"`)
+    .join(", ");
+
+const planetEnumValues = formatEnumValues(PlanetEnum);
+const aspectEnumValues = formatEnumValues(AspectEnum);
+const zodiacSignEnumValues = formatEnumValues(ZodiacSignEnum);
+const findEventDirectionEnumValues = formatEnumValues(FindEventDirectionEnum);
 
 /**
- * Mocks an LLM to parse a natural language query into a structured constraint object.
- * This is a placeholder and does not use an actual LLM.
+ * Parses a natural language query into a structured constraint object using Google Gemini Pro.
  * @param {string} text The natural language query.
- * @returns {{constraints: object[], direction?: string}} A ParseQueryResponse object containing constraints and optionally a direction.
+ * @returns {Promise<{constraints: object[], direction: string, startTime: string}>} A ParseQueryResponse object containing constraints, direction, and startTime.
  */
-export function parseQuery(text) {
-  // This is a mock implementation. In a real scenario, an LLM would parse the text.
-  // We'll hardcode a few examples based on the API contract example.
+export async function parseQuery(text) {
+  const currentISOString = new Date().toISOString();
 
-  const lowerText = text.toLowerCase();
-  let constraints = [];
-  let direction;
+  const PROMPT_TEMPLATE = `
+You are an expert astrological event parser. Your task is to convert natural language queries about astrological events into a structured JSON object. This JSON object will be used to make API calls to an astrological event finder.
 
-  if (lowerText.includes("last time pluto was opposite uranus")) {
-    constraints.push({
-      kind: "aspect",
-      planetA: PlanetEnum.Pluto,
-      planetB: PlanetEnum.Uranus,
-      aspect: AspectEnum.Opposition,
-      orb: 0, // Assuming 0 orb for exact aspect
-    });
-    direction = FindEventDirectionEnum.Past;
-  } else if (
-    lowerText.includes("next time sun is conjunct moon in pisces")
-  ) {
-    // Example for multiple constraints
-    constraints.push(
-      {
-        kind: "aspect",
-        planetA: PlanetEnum.Sun,
-        planetB: PlanetEnum.Moon,
-        aspect: AspectEnum.Conjunction,
-        orb: 0,
-      },
-      {
-        kind: "in_sign",
-        planet: PlanetEnum.Sun,
-        sign: "Pisces",
-      }
+The JSON object MUST strictly adhere to the following schema for a FindEventRequest. Only output the JSON object, nothing else.
+
+Schema Definition:
+type FindEventRequest = {
+  constraints: Constraint[];
+  direction: FindEventDirection;
+  startTime: string; // ISO 8601 string
+}
+
+type Constraint = AspectConstraint | InSignConstraint | AtDegreeConstraint;
+
+type AspectConstraint = {
+  kind: "aspect";
+  planetA: PlanetEnum;
+  planetB: PlanetEnum;
+  aspect: AspectEnum;
+  orb: number; // e.g., 1.5
+}
+
+type InSignConstraint = {
+  kind: "in_sign";
+  planet: PlanetEnum;
+  sign: ZodiacSignEnum;
+}
+
+type AtDegreeConstraint = {
+  kind: "at_degree";
+  planet: PlanetEnum;
+  degree: number; // Absolute zodiacal degree 0-359.99...
+  orb: number; // e.g., 0.5
+}
+
+Enum Values:
+PlanetEnum: ${planetEnumValues}
+AspectEnum: ${aspectEnumValues}
+ZodiacSignEnum: ${zodiacSignEnumValues}
+FindEventDirectionEnum: ${findEventDirectionEnumValues}
+
+Instructions:
+- The \`kind\` property for each constraint is mandatory and must be one of "aspect", "in_sign", or "at_degree".
+- For \`AspectConstraint\`, \`planetA\`, \`planetB\`, \`aspect\`, and \`orb\` are required. Use numerical values for \`orb\`.
+- For \`InSignConstraint\`, \`planet\` and \`sign\` are required.
+- For \`AtDegreeConstraint\`, \`planet\`, \`degree\` (absolute zodiacal 0-359.99), and \`orb\` are required.
+- If a specific \`startTime\` is not mentioned in the query, default it to the current UTC timestamp (e.g., "${currentISOString}").
+- If \`direction\` is not specified, default to "future". If phrases like "last time", "previous" are used, infer "past".
+- Ensure all enum string values exactly match those provided (case-sensitive where applicable).
+- Only output the JSON object. Do NOT include markdown formatting (like \`\`\`json) or any other text.
+
+---
+Query: "Find when the Sun is in Pisces next year"
+Output:
+{"constraints": [{"kind": "in_sign", "planet": "Sun", "sign": "Pisces"}], "direction": "future", "startTime": "2025-01-01T00:00:00Z"}
+---
+Query: "When was the last time Pluto was opposite Uranus, starting from today?"
+Output:
+{"constraints": [{"kind": "aspect", "planetA": "Pluto", "planetB": "Uranus", "aspect": "opposition", "orb": 1.0}], "direction": "past", "startTime": "${currentISOString}"}
+---
+Query: "When is the next time Sun conjuncts Moon in Pisces with an orb of 1.5 degrees, starting from today?"
+Output:
+{"constraints": [{"kind": "aspect", "planetA": "Sun", "planetB": "Moon", "aspect": "conjunction", "orb": 1.5}, {"kind": "in_sign", "planet": "Sun", "sign": "Pisces"}], "direction": "future", "startTime": "${currentISOString}"}
+---
+Query: "Mars at 15 degrees Libra with an orb of 0.5 degrees"
+Output:
+{"constraints": [{"kind": "at_degree", "planet": "Mars", "degree": 195, "orb": 0.5}], "direction": "future", "startTime": "${currentISOString}"}
+---
+Query: "${text}"
+Output:
+`;
+
+  if (!GEMINI_API_KEY) {
+    throw new Error(
+      "GEMINI_API_KEY is not configured. Cannot parse query with LLM.",
     );
-    direction = FindEventDirectionEnum.Future;
-  } else {
-    // Default or example for demonstration if no match
-    constraints.push({
-      kind: "aspect",
-      planetA: PlanetEnum.Sun,
-      planetB: PlanetEnum.Moon,
-      aspect: AspectEnum.Conjunction,
-      orb: 0,
-    });
-    direction = FindEventDirectionEnum.Future;
   }
 
-  return { constraints, direction };
+  try {
+    const fullPrompt = PROMPT_TEMPLATE.replace(/\$\{text\}/g, text).replace(
+      /\$\{currentISOString\}/g,
+      currentISOString,
+    );
+
+    const result = await model.generateContent(fullPrompt);
+    const response = await result.response;
+    const textOutput = response.text();
+
+    console.log(textOutput);
+
+    // The model might sometimes wrap the JSON in markdown code block, remove it.
+    let jsonString = textOutput.trim();
+    if (jsonString.startsWith("```json")) {
+      jsonString = jsonString.substring(7);
+    }
+    if (jsonString.endsWith("```")) {
+      jsonString = jsonString.substring(0, jsonString.length - 3);
+    }
+    jsonString = jsonString.trim();
+
+    const parsed = JSON.parse(jsonString);
+
+    // Basic validation to ensure it matches expected top-level keys
+    if (
+      !parsed.constraints ||
+      !Array.isArray(parsed.constraints) ||
+      typeof parsed.direction !== "string" ||
+      typeof parsed.startTime !== "string"
+    ) {
+      throw new Error(
+        "LLM response did not contain expected FindEventRequest structure.",
+      );
+    }
+
+    return parsed;
+  } catch (error) {
+    console.error("Error parsing query with Gemini LLM:", error);
+    // Depending on desired behavior, you might want to re-throw,
+    // return a default, or return a specific error format.
+    throw new Error(`Failed to parse query with LLM: ${error.message}`);
+  }
 }
+

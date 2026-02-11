@@ -51,4 +51,5 @@
  * @typedef {object} ParseQueryResponse
  * @property {import("./constraints").Constraint[]} constraints
  * @property {import("./constraints").FindEventDirection} [direction]
+ * @property {string} startTime // ISO 8601 string
  */

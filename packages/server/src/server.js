@@ -1,3 +1,4 @@
+import 'dotenv/config.js';
 import express from "express";
 import pkg from "body-parser";
 const { json } = pkg;
@@ -26,18 +27,22 @@ async function startServer() {
     console.log(`DEBUG: App listening on PORT ${PORT}`);
 
     // Routes
-    app.use("/find-event", findEventRoute);
-    app.use("/sky-at", skyAtRoute);
-    app.use("/planet-longitude", planetLongitudeRoute);
-    app.use("/parse-query", parseQueryRoute);
+    const apiRouter = express.Router();
 
-    app.get("/", (req, res) => {
-      res.status(200).send("OK");
+    apiRouter.use("/find-event", findEventRoute);
+    apiRouter.use("/sky-at", skyAtRoute);
+    apiRouter.use("/planet-longitude", planetLongitudeRoute);
+    apiRouter.use("/parse-query", parseQueryRoute);
+
+    // Basic health check for API
+    apiRouter.get("/health", (req, res) => {
+      res.status(200).send("API OK");
     });
 
-    // Basic health check
-    app.get("/health", (req, res) => {
-      res.status(200).send("OK");
+    app.use("/api", apiRouter); // Mount the API router
+
+    app.get("/", (req, res) => {
+      res.status(200).send("OK"); // Root endpoint remains
     });
 
     // Global error handling middleware
