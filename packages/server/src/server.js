@@ -1,5 +1,10 @@
 import 'dotenv/config.js';
 import express from "express";
+import path from "path"; // Import path module
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 import pkg from "body-parser";
 const { json } = pkg;
 import morgan from "morgan";
@@ -18,6 +23,22 @@ app.use(json());
 // Morgan middleware for logging HTTP requests
 app.use(morgan("dev")); // Use 'dev' format for concise, colorful output
 
+// Define the path to the static files (Next.js build output)
+const staticFilesPath = path.join(__dirname, "../../web/out");
+
+// Routes
+const apiRouter = express.Router(); // Define apiRouter here
+
+apiRouter.use("/find-event", findEventRoute);
+apiRouter.use("/sky-at", skyAtRoute);
+apiRouter.use("/planet-longitude", planetLongitudeRoute);
+apiRouter.use("/parse-query", parseQueryRoute);
+
+// Basic health check for API
+apiRouter.get("/health", (req, res) => {
+  res.status(200).send("API OK");
+});
+
 // Function to initialize and start the server
 async function startServer() {
   try {
@@ -26,26 +47,17 @@ async function startServer() {
     console.log(`DEBUG: process.env.PORT is ${process.env.PORT}`);
     console.log(`DEBUG: App listening on PORT ${PORT}`);
 
-    // Routes
-    const apiRouter = express.Router();
-
-    apiRouter.use("/find-event", findEventRoute);
-    apiRouter.use("/sky-at", skyAtRoute);
-    apiRouter.use("/planet-longitude", planetLongitudeRoute);
-    apiRouter.use("/parse-query", parseQueryRoute);
-
-    // Basic health check for API
-    apiRouter.get("/health", (req, res) => {
-      res.status(200).send("API OK");
-    });
-
     app.use("/api", apiRouter); // Mount the API router
+    
+    // Serve static files from the Next.js app
+    app.use(express.static(staticFilesPath));
 
-    app.get("/", (req, res) => {
-      res.status(200).send("OK"); // Root endpoint remains
+    // Serve the Next.js app for any other GET requests to the root
+    app.use((req, res) => {
+      res.sendFile(path.join(staticFilesPath, "index.html"));
     });
 
-    // Global error handling middleware
+    // Global error handling middleware - MUST be last
     app.use((err, req, res, next) => {
       console.error(err.stack);
       res.status(500).send({ error: "Something went wrong!" });

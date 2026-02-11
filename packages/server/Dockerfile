@@ -27,6 +27,9 @@ RUN npm ci
 # Copy application code
 COPY . .
 
+# Copy the built client application from the monorepo root
+COPY packages/web/out ./web/out 
+
 
 # Final stage for app image
 FROM base

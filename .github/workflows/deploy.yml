@@ -18,7 +18,22 @@ jobs:
         with:
           node-version: '20' # Specify Node.js version 20+ as per project requirements
 
-      - name: Install dependencies
+      # --- Build Client (packages/web) ---
+      - name: Install web dependencies
+        run: npm install
+        working-directory: packages/web
+        
+      - name: Build web application
+        run: npm run build
+        working-directory: packages/web
+      
+      # The 'out' directory is now created in packages/web/out
+      # and will be available for the server to serve.
+      # Fly.io's buildpack or Dockerfile for the server needs to be
+      # configured to include this 'web/out' directory.
+
+      # --- Install Server Dependencies ---
+      - name: Install server dependencies
         run: npm install
         working-directory: packages/server
 
