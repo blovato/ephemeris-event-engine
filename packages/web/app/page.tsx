@@ -1,66 +1,193 @@
-import Image from "next/image";
-import { Button } from "../components/ui/button";
+"use client";
 
-export default function Home() {
+import { useState, useRef } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { AlertCircle, ChevronDown, Copy, Loader2 } from "lucide-react";
+import { toast, Toaster } from "sonner"; // For copy to clipboard feedback
+
+export default function HomePage() {
+  const [text, setText] = useState("");
+  const [parsedQuery, setParsedQuery] = useState(null);
+  const [eventTimestamp, setEventTimestamp] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const resultCardRef = useRef<HTMLDivElement>(null);
+
+  const handleSubmit = async () => {
+    setError(null); // Clear previous errors
+    setLoading(true);
+    setParsedQuery(null);
+    setEventTimestamp(null);
+
+    if (!text.trim()) {
+      setError("Query text cannot be empty.");
+      setLoading(false);
+      return;
+    }
+
+    try {
+      // Step 1: POST to /api/parse-query
+      const parseResponse = await fetch("/api/parse-query", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ text }),
+      });
+
+      if (!parseResponse.ok) {
+        if (parseResponse.status === 429) {
+          setError("Rate limit exceeded. Please try again after a minute.");
+        } else if (parseResponse.status === 400) {
+          const errData = await parseResponse.json();
+          setError(`Invalid Query: ${errData.error || 'Please refine your query.'}`);
+        } else {
+          setError(`Error parsing query: ${parseResponse.statusText}`);
+        }
+        setLoading(false);
+        return;
+      }
+
+      const parsedData = await parseResponse.json();
+      setParsedQuery(parsedData);
+
+      // Step 2: Immediately POST that response to /api/find-event
+      const findEventResponse = await fetch("/api/find-event", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(parsedData),
+      });
+
+      if (!findEventResponse.ok) {
+        if (findEventResponse.status === 404) {
+          setError("No event found within search parameters.");
+        } else if (findEventResponse.status === 400) {
+          const errData = await findEventResponse.json();
+          setError(`Invalid Event Search: ${errData.error || 'Please refine your event search criteria.'}`);
+        } else {
+          setError(`Error finding event: ${findEventResponse.statusText}`);
+        }
+        setLoading(false);
+        return;
+      }
+
+      const eventData = await findEventResponse.json();
+      setEventTimestamp(eventData.timestamp);
+      
+      // Scroll result into view
+      resultCardRef.current?.scrollIntoView({ behavior: "smooth" });
+
+    } catch (err) {
+      console.error("An unexpected error occurred:", err);
+      setError("An unexpected error occurred. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCopyTimestamp = () => {
+    if (eventTimestamp) {
+      navigator.clipboard.writeText(eventTimestamp);
+      toast.success("Timestamp copied to clipboard!");
+    }
+  };
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-          <Button>Click me</Button>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+    <div className="max-w-3xl mx-auto py-12 px-6 space-y-8">
+      {/* Header Section */}
+      <header className="text-center">
+        <h1 className="text-2xl font-semibold">Ephemeris Event Engine</h1>
+        <p className="text-muted-foreground mt-2">Query astrological events using natural language</p>
+      </header>
+
+      {/* Natural Language Query Card */}
+      <Card className="rounded-2xl shadow-sm">
+        <CardHeader>
+          <CardTitle>Natural Language Query</CardTitle>
+          <CardDescription>Describe the astrological event you're looking for</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Textarea
+            placeholder="When does Mars trine Jupiter next?"
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            className="min-h-[120px]"
+            disabled={loading}
+          />
+          {error && (
+            <Alert variant="destructive" className="mt-4">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Error</AlertTitle>
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+          <Button onClick={handleSubmit} disabled={!text.trim() || loading} className="w-full mt-4">
+            {loading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Searching...
+              </>
+            ) : (
+              "Find Event"
+            )}
+          </Button>
+        </CardContent>
+        <CardFooter>
+          <p className="text-sm text-muted-foreground">Rate limit: 10 requests per minute</p>
+        </CardFooter>
+      </Card>
+
+      {/* Result Card */}
+      <Card ref={resultCardRef} className="rounded-2xl shadow-sm">
+        <CardHeader>
+          <CardTitle>Event Result</CardTitle>
+          <CardDescription>Details of the found astrological event</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {loading && (
+            <div className="flex justify-center items-center h-24">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          )}
+
+          {!loading && !eventTimestamp && !parsedQuery && (
+            <p className="text-muted-foreground text-center">Submit a query to find the next event.</p>
+          )}
+
+          {!loading && eventTimestamp && (
+            <div className="space-y-4">
+              <div className="flex flex-col">
+                <span className="text-muted-foreground text-sm">Next Occurrence</span>
+                <span className="text-3xl font-semibold">{eventTimestamp}</span>
+              </div>
+              <Button variant="outline" onClick={handleCopyTimestamp} className="w-full">
+                <Copy className="mr-2 h-4 w-4" />
+                Copy ISO Timestamp
+              </Button>
+            </div>
+          )}
+
+          {!loading && parsedQuery && (
+            <Collapsible className="mt-4">
+              <CollapsibleTrigger className="flex items-center justify-between w-full text-muted-foreground text-sm py-2">
+                View Parsed Constraints <ChevronDown className="h-4 w-4" />
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <pre className="text-sm bg-muted p-4 rounded-lg overflow-auto">
+                  <code>{JSON.stringify(parsedQuery, null, 2)}</code>
+                </pre>
+              </CollapsibleContent>
+            </Collapsible>
+          )}
+        </CardContent>
+      </Card>
+      <Toaster />
     </div>
   );
 }
