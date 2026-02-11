@@ -7,7 +7,7 @@ FROM node:${NODE_VERSION}-slim AS base
 LABEL fly_launch_runtime="Node.js"
 
 # Node.js app lives here
-WORKDIR /app
+WORKDIR /app/packages/server
 
 # Set production environment
 ENV NODE_ENV="production"
@@ -21,14 +21,14 @@ RUN apt-get update -qq && \
     apt-get install --no-install-recommends -y build-essential node-gyp pkg-config python-is-python3
 
 # Install node modules
-COPY package-lock.json package.json ./
+COPY packages/server/package-lock.json packages/server/package.json ./
 RUN npm ci
 
-# Copy application code
-COPY . .
+# Copy application code from packages/server
+COPY packages/server/. .
 
-# Copy the built client application from the monorepo root
-COPY packages/web/out ./web/out 
+# Copy the built client application
+COPY packages/web/out ../web/out 
 
 
 # Final stage for app image

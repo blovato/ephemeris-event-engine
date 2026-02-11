@@ -53,8 +53,19 @@ async function startServer() {
     app.use(express.static(staticFilesPath));
 
     // Serve the Next.js app for any other GET requests to the root
-    app.use((req, res) => {
-      res.sendFile(path.join(staticFilesPath, "index.html"));
+    app.use((req, res, next) => { // Added 'next' here for consistency, though not strictly used in this handler
+      res.sendFile(path.join(staticFilesPath, "index.html"), (err) => {
+        if (err) {
+          console.error("Error sending index.html:", err);
+          // If a file cannot be sent (e.g., doesn't exist), pass to next middleware
+          // or send a 500 status.
+          if (err.code === 'ENOENT') {
+            res.status(404).send('Not Found');
+          } else {
+            next(err); // Pass unexpected errors to the global error handler
+          }
+        }
+      });
     });
 
     // Global error handling middleware - MUST be last
