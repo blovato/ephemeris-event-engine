@@ -1,10 +1,22 @@
 "use client";
 
 import { useState, useRef } from "react";
+import { format, parseISO } from "date-fns"; // Import date-fns functions
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle, ChevronDown, Copy, Loader2 } from "lucide-react";
 import { toast, Toaster } from "sonner"; // For copy to clipboard feedback
@@ -44,7 +56,9 @@ export default function HomePage() {
           setError("Rate limit exceeded. Please try again after a minute.");
         } else if (parseResponse.status === 400) {
           const errData = await parseResponse.json();
-          setError(`Invalid Query: ${errData.error || 'Please refine your query.'}`);
+          setError(
+            `Invalid Query: ${errData.error || "Please refine your query."}`,
+          );
         } else {
           setError(`Error parsing query: ${parseResponse.statusText}`);
         }
@@ -69,7 +83,9 @@ export default function HomePage() {
           setError("No event found within search parameters.");
         } else if (findEventResponse.status === 400) {
           const errData = await findEventResponse.json();
-          setError(`Invalid Event Search: ${errData.error || 'Please refine your event search criteria.'}`);
+          setError(
+            `Invalid Event Search: ${errData.error || "Please refine your event search criteria."}`,
+          );
         } else {
           setError(`Error finding event: ${findEventResponse.statusText}`);
         }
@@ -79,10 +95,9 @@ export default function HomePage() {
 
       const eventData = await findEventResponse.json();
       setEventTimestamp(eventData.timestamp);
-      
+
       // Scroll result into view
       resultCardRef.current?.scrollIntoView({ behavior: "smooth" });
-
     } catch (err) {
       console.error("An unexpected error occurred:", err);
       setError("An unexpected error occurred. Please try again.");
@@ -98,19 +113,27 @@ export default function HomePage() {
     }
   };
 
+  const formattedTimestamp = eventTimestamp
+    ? format(parseISO(eventTimestamp), "MMMM do, yyyy h:mm:ss a zzz")
+    : "";
+
   return (
     <div className="max-w-3xl mx-auto py-12 px-6 space-y-8">
       {/* Header Section */}
       <header className="text-center">
         <h1 className="text-2xl font-semibold">Ephemeris Event Engine</h1>
-        <p className="text-muted-foreground mt-2">Query astrological events using natural language</p>
+        <p className="text-muted-foreground mt-2">
+          Query astrological events using natural language
+        </p>
       </header>
 
       {/* Natural Language Query Card */}
       <Card className="rounded-2xl shadow-sm">
         <CardHeader>
           <CardTitle>Natural Language Query</CardTitle>
-          <CardDescription>Describe the astrological event you're looking for</CardDescription>
+          <CardDescription>
+            Describe the astrological event you're looking for
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <Textarea
@@ -127,7 +150,11 @@ export default function HomePage() {
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
-          <Button onClick={handleSubmit} disabled={!text.trim() || loading} className="w-full mt-4">
+          <Button
+            onClick={handleSubmit}
+            disabled={!text.trim() || loading}
+            className="w-full mt-4"
+          >
             {loading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -139,7 +166,9 @@ export default function HomePage() {
           </Button>
         </CardContent>
         <CardFooter>
-          <p className="text-sm text-muted-foreground">Rate limit: 10 requests per minute</p>
+          <p className="text-sm text-muted-foreground">
+            Rate limit: 10 requests per minute
+          </p>
         </CardFooter>
       </Card>
 
@@ -147,7 +176,9 @@ export default function HomePage() {
       <Card ref={resultCardRef} className="rounded-2xl shadow-sm">
         <CardHeader>
           <CardTitle>Event Result</CardTitle>
-          <CardDescription>Details of the found astrological event</CardDescription>
+          <CardDescription>
+            Details of the found astrological event
+          </CardDescription>
         </CardHeader>
         <CardContent>
           {loading && (
@@ -157,16 +188,26 @@ export default function HomePage() {
           )}
 
           {!loading && !eventTimestamp && !parsedQuery && (
-            <p className="text-muted-foreground text-center">Submit a query to find the next event.</p>
+            <p className="text-muted-foreground text-center">
+              Submit a query to find the next event.
+            </p>
           )}
 
           {!loading && eventTimestamp && (
             <div className="space-y-4">
               <div className="flex flex-col">
-                <span className="text-muted-foreground text-sm">Next Occurrence</span>
-                <span className="text-3xl font-semibold">{eventTimestamp}</span>
+                <span className="text-muted-foreground text-sm">
+                  Next Occurrence
+                </span>
+                <span className="text-2xl font-semibold">
+                  {formattedTimestamp}
+                </span>
               </div>
-              <Button variant="outline" onClick={handleCopyTimestamp} className="w-full">
+              <Button
+                variant="outline"
+                onClick={handleCopyTimestamp}
+                className="w-full"
+              >
                 <Copy className="mr-2 h-4 w-4" />
                 Copy ISO Timestamp
               </Button>
