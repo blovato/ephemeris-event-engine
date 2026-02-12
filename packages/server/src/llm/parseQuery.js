@@ -7,7 +7,8 @@ if (!GROQ_API_KEY) {
   console.warn("GROQ_API_KEY is not set. The LLM parsing will not work.");
 }
 
-const GROQ_MODEL_NAME = process.env.GROQ_MODEL_NAME || "llama-3.3-70b-versatile"; // Default to a suitable Groq model
+const GROQ_MODEL_NAME =
+  process.env.GROQ_MODEL_NAME || "llama-3.3-70b-versatile"; // Default to a suitable Groq model
 
 const groq = new Groq({
   apiKey: GROQ_API_KEY,
@@ -51,7 +52,7 @@ type AspectConstraint = {
   planetA: PlanetEnum;
   planetB: PlanetEnum;
   aspect: AspectEnum;
-  orb: number; // e.g., 1.5
+  orb: number; // e.g., 1.5. Use 0.1 for exact match or when 'orb' is implied as 0.
 }
 
 type InSignConstraint = {
@@ -64,7 +65,7 @@ type AtDegreeConstraint = {
   kind: "at_degree";
   planet: PlanetEnum;
   degree: number; // Absolute zodiacal degree 0-359.99...
-  orb: number; // e.g., 0.5
+  orb: number; // e.g., 0.5. Use 0.1 for exact match or when 'orb' is implied as 0.
 }
 
 Enum Values:
@@ -75,9 +76,9 @@ FindEventDirectionEnum: ${findEventDirectionEnumValues}
 
 Instructions:
 - The \`kind\` property for each constraint is mandatory and must be one of "aspect", "in_sign", or "at_degree".
-- For \`AspectConstraint\`, \`planetA\`, \`planetB\`, \`aspect\`, and \`orb\` are required. Use numerical values for \`orb\`.
+- For \`AspectConstraint\`, \`planetA\` and \`planetB\` MUST be valid \`PlanetEnum\` values (not Zodiac signs). \`aspect\`, and \`orb\` are required. If \`orb\` is explicitly specified in the query, use that value. If the query implies an exact match (e.g., "exactly"), use \`0.1\`. Otherwise, default \`orb\` to \`1.0\`.
 - For \`InSignConstraint\`, \`planet\` and \`sign\` are required.
-- For \`AtDegreeConstraint\`, \`planet\`, \`degree\` (absolute zodiacal 0-359.99), and \`orb\` are required.
+- For \`AtDegreeConstraint\`, \`planet\`, \`degree\` (absolute zodiacal 0-359.99), and \`orb\` are required. If \`orb\` is explicitly specified in the query, use that value. If the query implies an exact match (e.g., "exactly"), use \`0.1\`. Otherwise, default \`orb\` to \`1.0\`.
 - If a specific \`startTime\` is not mentioned in the query, default it to the current UTC timestamp (e.g., "${currentISOString}").
 - If \`direction\` is not specified, default to "future". If phrases like "last time", "previous" are used, infer "past".
 - Ensure all enum string values exactly match those provided (case-sensitive where applicable).
@@ -92,13 +93,17 @@ Query: "When was the last time Pluto was opposite Uranus, starting from today?"
 Output:
 {"constraints": [{"kind": "aspect", "planetA": "Pluto", "planetB": "Uranus", "aspect": "opposition", "orb": 1.0}], "direction": "past", "startTime": "${currentISOString}"}
 ---
-Query: "When is the next time Sun conjuncts Moon in Pisces with an orb of 1.5 degrees, starting from today?"
+Query: "When is the next time Sun conjuncts Moon in Pisces, starting from today?"
 Output:
-{"constraints": [{"kind": "aspect", "planetA": "Sun", "planetB": "Moon", "aspect": "conjunction", "orb": 1.5}, {"kind": "in_sign", "planet": "Sun", "sign": "Pisces"}], "direction": "future", "startTime": "${currentISOString}"}
+{"constraints": [{"kind": "aspect", "planetA": "Sun", "planetB": "Moon", "aspect": "conjunction", "orb": 1.0}, {"kind": "in_sign", "planet": "Moon", "sign": "Pisces"}], "direction": "future", "startTime": "${currentISOString}"}
 ---
-Query: "Mars at 15 degrees Libra with an orb of 0.5 degrees"
+Query: "Mars at 15 degrees Libra exactly"
 Output:
-{"constraints": [{"kind": "at_degree", "planet": "Mars", "degree": 195, "orb": 0.5}], "direction": "future", "startTime": "${currentISOString}"}
+{"constraints": [{"kind": "at_degree", "planet": "Mars", "degree": 195, "orb": 0.1}], "direction": "future", "startTime": "${currentISOString}"}
+---
+Query: "Mars at 15 degrees Libra"
+Output:
+{"constraints": [{"kind": "at_degree", "planet": "Mars", "degree": 195, "orb": 1.0}], "direction": "future", "startTime": "${currentISOString}"}
 ---
 Query: "${text}"
 Output:
