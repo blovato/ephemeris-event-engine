@@ -1,14 +1,17 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import Groq from "groq-sdk";
 import { AspectEnum, FindEventDirectionEnum } from "../types/constraints.js";
 import { PlanetEnum, ZodiacSignEnum } from "../types/planets.js";
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-if (!GEMINI_API_KEY) {
-  console.warn("GEMINI_API_KEY is not set. The LLM parsing will not work.");
+const GROQ_API_KEY = process.env.GROQ_API_KEY;
+if (!GROQ_API_KEY) {
+  console.warn("GROQ_API_KEY is not set. The LLM parsing will not work.");
 }
 
-const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+const GROQ_MODEL_NAME = process.env.GROQ_MODEL_NAME || "llama-3.3-70b-versatile"; // Default to a suitable Groq model
+
+const groq = new Groq({
+  apiKey: GROQ_API_KEY,
+});
 
 // Helper to format enum values for the prompt
 const formatEnumValues = (enumObj) =>
@@ -22,7 +25,7 @@ const zodiacSignEnumValues = formatEnumValues(ZodiacSignEnum);
 const findEventDirectionEnumValues = formatEnumValues(FindEventDirectionEnum);
 
 /**
- * Parses a natural language query into a structured constraint object using Google Gemini Pro.
+ * Parses a natural language query into a structured constraint object using Groq.
  * @param {string} text The natural language query.
  * @returns {Promise<{constraints: object[], direction: string, startTime: string}>} A ParseQueryResponse object containing constraints, direction, and startTime.
  */
@@ -101,9 +104,9 @@ Query: "${text}"
 Output:
 `;
 
-  if (!GEMINI_API_KEY) {
+  if (!GROQ_API_KEY) {
     throw new Error(
-      "GEMINI_API_KEY is not configured. Cannot parse query with LLM.",
+      "GROQ_API_KEY is not configured. Cannot parse query with LLM.",
     );
   }
 
@@ -113,9 +116,19 @@ Output:
       currentISOString,
     );
 
-    const result = await model.generateContent(fullPrompt);
-    const response = await result.response;
-    const textOutput = response.text();
+    const chatCompletion = await groq.chat.completions.create({
+      messages: [
+        {
+          role: "user",
+          content: fullPrompt,
+        },
+      ],
+      model: GROQ_MODEL_NAME,
+      temperature: 0, // Ensure deterministic output
+      // You can add other Groq specific parameters here if needed
+    });
+
+    const textOutput = chatCompletion.choices[0]?.message?.content || "";
 
     console.log(textOutput);
 
@@ -145,10 +158,9 @@ Output:
 
     return parsed;
   } catch (error) {
-    console.error("Error parsing query with Gemini LLM:", error);
+    console.error("Error parsing query with Groq LLM:", error);
     // Depending on desired behavior, you might want to re-throw,
     // return a default, or return a specific error format.
     throw new Error(`Failed to parse query with LLM: ${error.message}`);
   }
 }
-
