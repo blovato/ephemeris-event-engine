@@ -25,7 +25,7 @@ export async function findEvent(constraints, direction, startTime) {
   }
 
   // Set a reasonable search limit to prevent infinite loops
-  const MAX_ITERATIONS = 365 * 10; // Search up to 10 years in the specified direction
+  const MAX_ITERATIONS = 365 * 100; // Search up to 100 years in the specified direction
 
   let coarseFoundTime = null;
   for (let i = 0; i < MAX_ITERATIONS; i++) {
