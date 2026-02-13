@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect, Suspense } from "react";
 import { format, parseISO } from "date-fns"; // Import date-fns functions
+import { useRouter, useSearchParams } from "next/navigation"; // Import useRouter and useSearchParams
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Card,
   CardContent,
@@ -11,44 +13,66 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertCircle, ChevronDown, Copy, Loader2 } from "lucide-react";
-import { toast, Toaster } from "sonner"; // For copy to clipboard feedback
+import { AlertCircle, ChevronDown, Eye, Loader2 } from "lucide-react";
 
-export default function HomePage() {
+function HomeContent() {
   const [text, setText] = useState("");
   const [parsedQuery, setParsedQuery] = useState(null);
   const [eventTimestamp, setEventTimestamp] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const resultCardRef = useRef<HTMLDivElement>(null);
+  const router = useRouter(); // Initialize useRouter
+  const searchParams = useSearchParams(); // Import useSearchParams
 
-  const handleSubmit = async () => {
+  useEffect(() => {
+    const queryParam = searchParams.get("query");
+
+    if (queryParam && queryParam !== text) {
+      // Only set text and submit if queryParam is new
+
+      setText(queryParam);
+
+      handleSubmit(queryParam);
+    }
+  }, [searchParams]); // Depend on searchParams
+
+  const handleSubmit = async (queryToSubmit?: string) => {
     setError(null); // Clear previous errors
+
     setLoading(true);
+
     setParsedQuery(null);
+
     setEventTimestamp(null);
 
-    if (!text.trim()) {
+    const query = queryToSubmit || text; // Use queryToSubmit if provided, otherwise use current text state
+
+    if (!query.trim()) {
       setError("Query text cannot be empty.");
+
       setLoading(false);
+
       return;
     }
 
     try {
       // Step 1: POST to /api/parse-query
+
       const parseResponse = await fetch("/api/parse-query", {
         method: "POST",
+
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ text }),
+
+        body: JSON.stringify({ text: query }),
       });
 
       if (!parseResponse.ok) {
@@ -106,10 +130,10 @@ export default function HomePage() {
     }
   };
 
-  const handleCopyTimestamp = () => {
+  const handleViewSky = () => {
+    // Renamed function
     if (eventTimestamp) {
-      navigator.clipboard.writeText(eventTimestamp);
-      toast.success("Timestamp copied to clipboard!");
+      router.push(`/sky-at?datetime=${encodeURIComponent(eventTimestamp)}`); // Navigate to sky-at page
     }
   };
 
@@ -136,12 +160,19 @@ export default function HomePage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Textarea
+          <Input
+            type="text" // Change to text input
             placeholder="When does Mars trine Jupiter next?"
             value={text}
             onChange={(e) => setText(e.target.value)}
-            className="min-h-[120px]"
+            className="w-full" // Adjusted class name for input
             disabled={loading}
+            onKeyDown={(e) => {
+              // Add onKeyDown handler for Enter key
+              if (e.key === "Enter" && !loading && text.trim()) {
+                handleSubmit(); // Call without argument to use current text state
+              }
+            }}
           />
           {error && (
             <Alert variant="destructive" className="mt-4">
@@ -151,7 +182,7 @@ export default function HomePage() {
             </Alert>
           )}
           <Button
-            onClick={handleSubmit}
+            onClick={() => handleSubmit()}
             disabled={!text.trim() || loading}
             className="w-full mt-4"
           >
@@ -205,11 +236,11 @@ export default function HomePage() {
               </div>
               <Button
                 variant="outline"
-                onClick={handleCopyTimestamp}
+                onClick={handleViewSky} // Changed onClick handler
                 className="w-full"
               >
-                <Copy className="mr-2 h-4 w-4" />
-                Copy ISO Timestamp
+                <Eye className="mr-2 h-4 w-4" /> {/* Changed icon */}
+                View Sky {/* Changed button text */}
               </Button>
             </div>
           )}
@@ -228,7 +259,14 @@ export default function HomePage() {
           )}
         </CardContent>
       </Card>
-      <Toaster />
     </div>
+  );
+}
+
+export default function HomePage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <HomeContent />
+    </Suspense>
   );
 }
